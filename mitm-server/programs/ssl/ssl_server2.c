@@ -155,7 +155,7 @@ int main( void )
  * You will need to adapt the mbedtls_ssl_get_bytes_avail() test in ssl-opt.sh
  * if you change this value to something outside the range <= 100 or > 500
  */
-#define IO_BUF_LEN      200
+#define IO_BUF_LEN      500
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 #if defined(MBEDTLS_FS_IO)
@@ -2190,8 +2190,36 @@ data_exchange:
     mbedtls_printf( "  > Write to client:" );
     fflush( stdout );
 
-    len = sprintf( (char *) buf, HTTP_RESPONSE,
-                   mbedtls_ssl_get_ciphersuite( &ssl ) );
+    if (0 == memcmp(buf, "GET / ", 6)) {
+        len = sprintf((char *) buf,
+                "HTTP/1.0 200 OK\r\n"
+                "Content-Type: text/html\r\n"
+                "\r\n"
+                "<!doctype html>"
+                "<meta charset=utf-8>"
+                "<title>MitM Fake TLS Server</title>"
+                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
+                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
+                "<h1>MitM Fake TLS Server</h1>"
+                "<p>%s</p>"
+                "<p>Hello, vulnerable TLS world!</p>"
+                "<p>This connection is controlled by a man-in-the-middle attacker.</p>",
+                mbedtls_ssl_get_ciphersuite(&ssl)
+                );
+    } else {
+        len = sprintf((char *) buf,
+                "HTTP/1.0 404 Not Found\r\n"
+                "Content-Type: text/html\r\n"
+                "\r\n"
+                "<!doctype html>"
+                "<meta charset=utf-8>"
+                "<title>MitM Fake TLS Server</title>"
+                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
+                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
+                "<h1>MitM Fake TLS Server</h1>"
+                "<p>404 Not Found</p>"
+                );
+    }
 
     if( opt.transport == MBEDTLS_SSL_TRANSPORT_STREAM )
     {

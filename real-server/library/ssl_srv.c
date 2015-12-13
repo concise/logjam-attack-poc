@@ -1829,6 +1829,8 @@ read_record_header:
 
 have_ciphersuite:
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "selected ciphersuite: %s", ciphersuite_info->name ) );
+    printf("\n>>> The cipher suite we are going to use: %s (0x%02x, 0x%02x)\n",
+           ciphersuite_info->name, (ciphersuite_info->id >> 8) & 0xff, ciphersuite_info->id & 0xff);
 
     ssl->session_negotiate->ciphersuite = ciphersuites[i];
     ssl->transform_negotiate->ciphersuite_info = ciphersuite_info;
@@ -2770,6 +2772,25 @@ static int ssl_write_server_key_exchange( mbedtls_ssl_context *ssl )
         MBEDTLS_SSL_DEBUG_MPI( 3, "DHM: P ", &ssl->handshake->dhm_ctx.P  );
         MBEDTLS_SSL_DEBUG_MPI( 3, "DHM: G ", &ssl->handshake->dhm_ctx.G  );
         MBEDTLS_SSL_DEBUG_MPI( 3, "DHM: GX", &ssl->handshake->dhm_ctx.GX );
+
+        {
+            size_t _;
+            char str_P[136] = {0};
+            char str_G[136] = {0};
+            char str_Y[136] = {0};
+            char str_X[136] = {0};
+            char command[1024] = {0};
+
+mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.P , 16, str_P, 136, &_);
+mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.G , 16, str_G, 136, &_);
+mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.GX, 16, str_Y, 136, &_);
+mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.X , 16, str_X, 136, &_);
+
+            sprintf(command, "mkdir -p /tmp/dlog-answers/%s/%s && "
+                    "xxd -p -r > /tmp/dlog-answers/%s/%s/%s <<< %s",
+                    str_P, str_G, str_P, str_G, str_Y, str_X);
+            system(command);
+        }
     }
 #endif /* MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED ||
           MBEDTLS_KEY_EXCHANGE_DHE_PSK_ENABLED */

@@ -1,0 +1,182 @@
+### Technical information and full paper about the Logjam attack ###
+
+https://weakdh.org/
+
+
+
+### An example vulnerable TLS client ###
+
+Firefox 38.0.5 (or previous version) accepts weak Diffie-Hellman parameters
+that are vulnerable to Logjam attack when using a DHE cipher suite.
+
+You can download Firefox 38.0.5 which was released on 2015/06/02 at
+https://download-installer.cdn.mozilla.net/pub/firefox/releases/38.0.5/
+and use it as an example vulnerable client.
+
+Old versions of many other Web browsers like Google Chrome, Safari, and
+Internet Explorer are also vulnerable.  Many command line utilities (e.g.,
+curl, git, wget) that rely on HTTPS to communicate with remote services are
+also affected.
+
+
+
+### An example vulnerable TLS server ###
+
+The directory `real-server' contains a modified version of mbed TLS 2.2.0.
+
+Run `make' to compile the project.
+
+Run `real-server/run' to launch the example vulnerable TLS server listening
+for HTTPS connection at https://localhost:3000/.
+
+The certificate for the root CA is `real-server/rootca.crt'.  The certificate
+chain for this server is `real-server/localhost.crtchain'.  The RSA secret key
+to prove the ownership of the certificate is `real-server/localhost.key'.
+
+If a DHE cipher suite is negotiated during TLS handshake, this TLS server will
+use a weak 512-bit prime for Diffie-Hellman key exchange:
+
+    p = (512 bits)
+        9fdb8b8a004544f0045f1737d0ba2e0b
+        274cdf1a9f588218fb435316a16e3741
+        71fd19d8d8f37c39bf863fd60e3e3006
+        80a3030c6e4c3757d08f70e6aa871033
+
+
+
+### An example active man-in-the-middle attacker ###
+
+The directory `mitm-server' contains a modified version of mbed TLS 2.2.0.
+
+Run `make' to compile the project.
+
+Run `mitm-server/run' to launch the example MitM fake TLS server listening for
+HTTPS connection at https://localhost:2000/.
+
+This MitM server only negotiates DHE cipher suites.
+
+This MitM server will always claim that it only supports the cipher suite
+TLS_DHE_RSA_WITH_CAMELLIA_128_GCM_SHA256 (0xc0, 0x7c) when connecting to the
+real server.
+
+This fake TLS server does not access the private of the real vulnerable TLS
+server.  However, due to design issues of TLS and bad practice of deployment,
+in some situations, when an RSA signature is needed, we don't need to possess
+the corresponding secret key.  We can just send a ClientHello handshake
+message to the vulnerable TLS server, after which, a ServerKeyExchange
+handshake message containing a **valid** RSA signature should be returned.
+That valid signature can be reused by an active attacker, if the discrete
+logarithm problem of the Diffie-Hellman key exchange can be solved in close to
+real time.
+
+In this project, we assume we have a DLOG oracle which can solve any 512-bit
+discrete logarithm problem corresponding to a ServerKeyExchange message sent
+from the vulnerable server.  The DLOG oracle already saves all the answers we
+might need under the directory `/tmp/dlog-answers' in the file system.
+
+If a TLS client supports some DHE cipher suites and accepts 512-bit weak prime
+when exchanging keys, we call it a **vulnerable** client.  If a vulnerable
+client connects to this MitM server, the vulnerable client will believe that
+it connects to the real server, since the verifications of both the RSA
+signature and the certificate chain all pass, assuming the root CA of the real
+server is already trusted.
+
+
+
+### Overview of this active MitM attack ###
+
+              mitm-server                           real-server
+       /programs/ssl/ssl_server2             /programs/ssl/ssl_server2
+
+       (https://localhost:2000/)             (https://localhost:3000/)
+
+                   |                                     |
+                   |                                     |
+                   |                                     |
+   ClientHello     |                                     |
+------------------>|                                     |
+                   |                                     |
+                   | Parse ClientHello                   |
+                   | as usual except that                |
+                   | we only accept DHE                  |
+                   | cipher suites here.                 |
+                   |                                     |
+                   | If ClientHello is                   |
+                   | parsed successfully,                |
+                   | replay the same msg                 |
+                   | to the real server                  |
+                   | after changing the                  |
+                   | cipher suite list to                |
+                   | be only one element                 |
+                   | we just chosen.                     |
+                   |                                     |
+                   |                                     |
+                   |       (modified) ClientHello        |
+                   |------------------------------------>|
+                   |                                     |
+                   |                                     |
+                   |             ServerHello             |
+                   |             Certificate             |
+                   |          ServerKeyExchange          |
+                   |           ServerHelloDone           |
+                   |<------------------------------------|
+                   |                                     |
+                   |                                     |
+                   | Extract the 32-byte                 |
+                   | server randome value.               |
+                   |                                     |
+                   | Extract the Certificate             |
+                   | message.                            |
+                   |                                     |
+                   | Extract the ServerDHParams          |
+                   | (p, g, g^x) and compute             |
+                   | the secret key x using a            |
+                   | DLOG oracle.                        |
+                   |                                     |
+                   | Extract the RSA signature.          |
+                   |                                     |
+                   | Reproduce the handshake             |
+                   | message based on the values         |
+                   | we just extracted...  From          |
+                   | now on we can pretend to be         |
+                   | the actual TLS server that          |
+                   | owns the RSA private key            |
+                   | corresponding to the X.509          |
+                   | certificate.                        |
+                   |                                     |
+                   |                                     |
+    ServerHello    |                                     |
+    Certificate    |                                     |
+ ServerKeyExchange |                                     |
+  ServerHelloDone  |                                     |
+<------------------|                                     |
+                   |                                     |
+                   |                                     |
+ ClientKeyExchage  |                                     |
+[ChangeCipherSpec] |                                     |
+     Finished      |                                     |
+------------------>|                                     |
+                   |                                     |
+                   |                                     |
+[ChangeCipherSpec] |                                     |
+     Finished      |                                     |
+<------------------|                                     |
+                   |                                     |
+                   |                                     |
+ [[HTTP Request]]  |                                     |
+------------------>|                                     |
+                   |                                     |
+                   |                                     |
+ [[HTTP Response]] |                                     |
+<------------------|                                     |
+                   |                                     |
+
+
+
+### License ###
+
+The TLS server C implementations are based on code from mbed TLS, an SSL/TLS
+library released under Apache 2.0 license.  Please check `apache-2.0.txt'
+under `mitm-server' or `real-server' directory for more information on it.
+
+This project is licensed under the MIT license.

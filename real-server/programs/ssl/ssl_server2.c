@@ -155,7 +155,7 @@ int main( void )
  * You will need to adapt the mbedtls_ssl_get_bytes_avail() test in ssl-opt.sh
  * if you change this value to something outside the range <= 100 or > 500
  */
-#define IO_BUF_LEN      200
+#define IO_BUF_LEN      500
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 #if defined(MBEDTLS_FS_IO)
@@ -1605,6 +1605,12 @@ int main( int argc, char *argv[] )
         goto exit;
     }
 
+    mbedtls_ssl_conf_dh_param(&conf,
+            "9fdb8b8a004544f0045f1737d0ba2e0b"
+            "274cdf1a9f588218fb435316a16e3741"
+            "71fd19d8d8f37c39bf863fd60e3e3006"
+            "80a3030c6e4c3757d08f70e6aa871033", "02");
+
     if( opt.auth_mode != DFL_AUTH_MODE )
         mbedtls_ssl_conf_authmode( &conf, opt.auth_mode );
 
@@ -2190,8 +2196,35 @@ data_exchange:
     mbedtls_printf( "  > Write to client:" );
     fflush( stdout );
 
-    len = sprintf( (char *) buf, HTTP_RESPONSE,
-                   mbedtls_ssl_get_ciphersuite( &ssl ) );
+    if (0 == memcmp(buf, "GET / ", 6)) {
+        len = sprintf((char *) buf,
+                "HTTP/1.0 200 OK\r\n"
+                "Content-Type: text/html\r\n"
+                "\r\n"
+                "<!doctype html>"
+                "<meta charset=utf-8>"
+                "<title>Logjam Vulnerable TLS Server</title>"
+                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
+                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
+                "<h1>Logjam Vulnerable TLS Server</h1>"
+                "<p>%s</p>"
+                "<p>Hello, world!</p>",
+                mbedtls_ssl_get_ciphersuite(&ssl)
+                );
+    } else {
+        len = sprintf((char *) buf,
+                "HTTP/1.0 404 Not Found\r\n"
+                "Content-Type: text/html\r\n"
+                "\r\n"
+                "<!doctype html>"
+                "<meta charset=utf-8>"
+                "<title>Logjam Vulnerable TLS Server</title>"
+                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
+                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
+                "<h1>Logjam Vulnerable TLS Server</h1>"
+                "<p>404 Not Found</p>"
+                );
+    }
 
     if( opt.transport == MBEDTLS_SSL_TRANSPORT_STREAM )
     {

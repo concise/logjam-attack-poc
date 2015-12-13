@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+EXE=${BASH_SOURCE[0]}
+CTR=0
+while [[ -L $EXE ]]; do
+  (( ++CTR <= 100 )) || { echo Too many level of symlinks; exit 1; }
+  DIR=$( cd -P "$( dirname "$EXE" )" && pwd )
+  EXE=$( readlink "$EXE" )
+  [[ $EXE = /* ]] || EXE=$DIR/$EXE
+done
+__DIR__=$( cd -P "$( dirname "$EXE" )" && pwd )
+__NAME__=$( basename "$EXE" )
+__FILE__=$__DIR__/$__NAME__
+
+cd "$__DIR__/.."
+
+exec real-server/programs/ssl/ssl_server2 \
+        server_addr=127.0.0.1 \
+        server_port=3000 \
+        crt_file=real-server/localhost.crtchain \
+        key_file=real-server/localhost.key
