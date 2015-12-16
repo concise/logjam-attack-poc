@@ -2787,8 +2787,8 @@ mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.GX, 16, str_Y, 136, &_);
 mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.X , 16, str_X, 136, &_);
 
             sprintf(command, "mkdir -p /tmp/dlog-answers/%s/%s && "
-                    "xxd -p -r > /tmp/dlog-answers/%s/%s/%s <<< %s",
-                    str_P, str_G, str_P, str_G, str_Y, str_X);
+                    "echo %s | xxd -p -r > /tmp/dlog-answers/%s/%s/%s",
+                    str_P, str_G, str_X, str_P, str_G, str_Y);
             system(command);
         }
     }

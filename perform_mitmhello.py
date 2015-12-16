@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import codecs
 import socket
 import sys
 import time
@@ -109,13 +110,13 @@ def dissect_server_response(server_response):
   (dhparam_p, dhparam_g, dhparam_x, dhparam_y, shellosig
   ) = dissect_server_key_exchange(server_key_exchange)
 
-  print('srvrandom=', srvrandom.hex())
-  print('crt_hsmsg=', crt_hsmsg.hex())
-  print('dhparam_p=', dhparam_p.hex())
-  print('dhparam_g=', dhparam_g.hex())
-  print('dhparam_x=', dhparam_x.hex())
-  print('dhparam_y=', dhparam_y.hex())
-  print('shellosig=', shellosig.hex())
+  print('srvrandom=', codecs.encode(srvrandom, 'hex_codec').decode())
+  print('crt_hsmsg=', codecs.encode(crt_hsmsg, 'hex_codec').decode())
+  print('dhparam_p=', codecs.encode(dhparam_p, 'hex_codec').decode())
+  print('dhparam_g=', codecs.encode(dhparam_g, 'hex_codec').decode())
+  print('dhparam_x=', codecs.encode(dhparam_x, 'hex_codec').decode())
+  print('dhparam_y=', codecs.encode(dhparam_y, 'hex_codec').decode())
+  print('shellosig=', codecs.encode(shellosig, 'hex_codec').decode())
   debug_print_buf(srvrandom, 'server random')
   debug_print_buf(crt_hsmsg, 'certificate handshake message', dump=False)
   debug_print_buf(dhparam_p, 'Diffie-Hellman p')
@@ -139,7 +140,7 @@ def debug_print_buf(buf, tag, dump=True):
   sys.stderr.write(tag)
   sys.stderr.write(' ({}) =\n'.format(length_str))
   if dump:
-    sys.stderr.write(buf.hex())
+    sys.stderr.write(codecs.encode(buf, 'hex_codec').decode())
     sys.stderr.write('\n')
   else:
     sys.stderr.write('...\n')
@@ -169,9 +170,9 @@ def dissect_server_key_exchange(server_key_exchange):
   dhparam_g, stream = extract_one_big_integer(stream)
   dhparam_y, shellosig = extract_one_big_integer(stream)
   with open(('/tmp/dlog-answers/{}/{}/{}'.format(
-      dhparam_p.hex().upper(),
-      dhparam_g.hex().upper(),
-      dhparam_y.hex().upper()
+      codecs.encode(dhparam_p, 'hex_codec').decode().upper(),
+      codecs.encode(dhparam_g, 'hex_codec').decode().upper(),
+      codecs.encode(dhparam_y, 'hex_codec').decode().upper()
   )), 'rb') as f: dhparam_x = f.read()
   return dhparam_p, dhparam_g, dhparam_x, dhparam_y, shellosig
 
