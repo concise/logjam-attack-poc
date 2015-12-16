@@ -4,6 +4,12 @@ https://weakdh.org/
 
 
 
+### Execution environment ###
+
+This project has been tested on 64-bit Ubuntu 14.04.3 and OS X 10.11.2.
+
+
+
 ### An example vulnerable TLS client ###
 
 Firefox 38.0.5 (or previous version) accepts weak Diffie-Hellman parameters
