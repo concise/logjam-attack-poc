@@ -56,7 +56,7 @@ static unsigned char dhparam_p[256]  = {0}; static size_t dhparam_p_len = 0;
 static unsigned char dhparam_g[256]  = {0}; static size_t dhparam_g_len = 0;
 static unsigned char dhparam_x[256]  = {0}; static size_t dhparam_x_len = 0;
 static unsigned char dhparam_y[256]  = {0}; static size_t dhparam_y_len = 0;
-static unsigned char shellosig[512]  = {0}; static size_t shellosig_len = 0;
+static unsigned char shellosig[1024]  = {0}; static size_t shellosig_len = 0;
 
 #if defined(MBEDTLS_SSL_SESSION_TICKETS)
 /* Implementation that should never be optimized out by the compiler */
@@ -2257,7 +2257,7 @@ static void ssl_prepare_mitm_server_hello_states(void)
     char hex_dhparam_g[516]   = {0}; size_t hex_dhparam_g_len = 0;
     char hex_dhparam_x[516]   = {0}; size_t hex_dhparam_x_len = 0;
     char hex_dhparam_y[516]   = {0}; size_t hex_dhparam_y_len = 0;
-    char hex_signature[1028]  = {0}; size_t hex_signature_len = 0;
+    char hex_signature[2048]  = {0}; size_t hex_signature_len = 0;
 
     for (i = 0; i < ch_hsmsg_len; ++i) {
         sprintf(clienthello + 2*i, "%02x", ch_hsmsg[i]);

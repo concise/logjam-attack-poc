@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import codecs
+import os
 import socket
 import sys
 import time
@@ -72,7 +73,7 @@ def wrap_as_tls_plaintext_record(new_client_hello):
 
 def perform_hello(request):
   s = socket.socket()
-  s.connect(('127.0.0.1', 3000))
+  s.connect(('127.0.0.1', 443))
 
   s.sendall(request)
 
@@ -95,6 +96,9 @@ def record_layer_to_handshake_layer(stream):
       fragmlen = B2I(stream[3:5])
       fragment, stream = stream[5:(5 + fragmlen)], stream[(5 + fragmlen):]
       result += fragment
+    else:
+      fragmlen = B2I(stream[3:5])
+      fragment, stream = stream[5:(5 + fragmlen)], stream[(5 + fragmlen):]
   return result
 
 def dissect_server_response(server_response):
@@ -169,11 +173,25 @@ def dissect_server_key_exchange(server_key_exchange):
   dhparam_p, stream = extract_one_big_integer(server_key_exchange)
   dhparam_g, stream = extract_one_big_integer(stream)
   dhparam_y, shellosig = extract_one_big_integer(stream)
-  with open(('/tmp/dlog-answers/{}/{}/{}'.format(
+
+  URL = 'http://127.0.0.1:10444/{}/{}/{}'.format(
       codecs.encode(dhparam_p, 'hex_codec').decode().upper(),
       codecs.encode(dhparam_g, 'hex_codec').decode().upper(),
       codecs.encode(dhparam_y, 'hex_codec').decode().upper()
-  )), 'rb') as f: dhparam_x = f.read()
+  )
+  DIRNAME = '/tmp/{}/{}'.format(
+      codecs.encode(dhparam_p, 'hex_codec').decode().upper(),
+      codecs.encode(dhparam_g, 'hex_codec').decode().upper()
+  )
+  FILENAME = '/tmp/{}/{}/{}'.format(
+      codecs.encode(dhparam_p, 'hex_codec').decode().upper(),
+      codecs.encode(dhparam_g, 'hex_codec').decode().upper(),
+      codecs.encode(dhparam_y, 'hex_codec').decode().upper()
+  )
+  os.system('mkdir -p {}'.format(DIRNAME))
+  os.system('wget -qO {} {}'.format(FILENAME, URL))
+  with open(FILENAME, 'rb') as f: dhparam_x = f.read()
+
   return dhparam_p, dhparam_g, dhparam_x, dhparam_y, shellosig
 
 def exit_print_usage():

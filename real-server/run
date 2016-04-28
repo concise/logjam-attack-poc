@@ -1,6 +1,9 @@
 #!/bin/bash
 
-set -e
+set -o pipefail         # proper status code for a pipeline
+set -o errexit          # exit when seeing a nonzero status code (set -e)
+set -o nounset          # using unbound variable is an error (set -u)
+shopt -s failglob       # pathname expansion failing is an error
 
 EXE=${BASH_SOURCE[0]}
 CTR=0
@@ -13,11 +16,13 @@ done
 __DIR__=$( cd -P "$( dirname "$EXE" )" && pwd )
 __NAME__=$( basename "$EXE" )
 __FILE__=$__DIR__/$__NAME__
-
 cd "$__DIR__/.."
 
+test -f "$CRT_FILE"
+test -f "$KEY_FILE"
+
 exec real-server/programs/ssl/ssl_server2 \
-        server_addr=127.0.0.1 \
-        server_port=3000 \
-        crt_file=real-server/localhost.crtchain \
-        key_file=real-server/localhost.key
+        server_addr=0.0.0.0 \
+        server_port=443 \
+        crt_file="$CRT_FILE" \
+        key_file="$KEY_FILE"

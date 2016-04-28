@@ -2193,31 +2193,26 @@ data_exchange:
     if (0 == memcmp(buf, "GET / ", 6)) {
         len = sprintf((char *) buf,
                 "HTTP/1.0 200 OK\r\n"
+                "Server: nginx/1.4.6 (Ubuntu)\r\n"
                 "Content-Type: text/html\r\n"
                 "\r\n"
-                "<!doctype html>"
-                "<meta charset=utf-8>"
-                "<title>MitM Fake TLS Server</title>"
-                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
-                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
-                "<h1>MitM Fake TLS Server</h1>"
-                "<p>%s</p>"
-                "<p>Hello, vulnerable TLS world!</p>"
-                "<p>This connection is controlled by a man-in-the-middle attacker.</p>",
-                mbedtls_ssl_get_ciphersuite(&ssl)
+                "<!doctype html>\n"
+                "<meta charset=\"utf-8\">\n"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+                "\n"
+                "<title>Your network connection is hacked!</title>\n"
+                "<h1 style=color:red>Your network connection is hacked!</h1>\n"
                 );
     } else {
         len = sprintf((char *) buf,
                 "HTTP/1.0 404 Not Found\r\n"
+                "Server: nginx/1.4.6 (Ubuntu)\r\n"
                 "Content-Type: text/html\r\n"
                 "\r\n"
-                "<!doctype html>"
-                "<meta charset=utf-8>"
-                "<title>MitM Fake TLS Server</title>"
-                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
-                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
-                "<h1>MitM Fake TLS Server</h1>"
-                "<p>404 Not Found</p>"
+                "<!doctype html>\n"
+                "<meta charset=utf-8>\n"
+                "<title>404 Not Found</title>\n"
+                "<h1>404 Not Found</h1>\n"
                 );
     }
 

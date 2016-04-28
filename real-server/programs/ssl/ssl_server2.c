@@ -2075,7 +2075,7 @@ data_exchange:
                 }
             }
 
-            if( mbedtls_ssl_get_bytes_avail( &ssl ) == 0 )
+            if( 1 || mbedtls_ssl_get_bytes_avail( &ssl ) == 0 )
             {
                 len = ret;
                 buf[len] = '\0';
@@ -2083,7 +2083,9 @@ data_exchange:
 
                 /* End of message should be detected according to the syntax of the
                  * application protocol (eg HTTP), just use a dummy test here. */
+                /*
                 if( buf[len - 1] == '\n' )
+                */
                     terminated = 1;
             }
             else
@@ -2199,30 +2201,24 @@ data_exchange:
     if (0 == memcmp(buf, "GET / ", 6)) {
         len = sprintf((char *) buf,
                 "HTTP/1.0 200 OK\r\n"
+                "Server: nginx/1.4.6 (Ubuntu)\r\n"
                 "Content-Type: text/html\r\n"
                 "\r\n"
-                "<!doctype html>"
-                "<meta charset=utf-8>"
-                "<title>Logjam Vulnerable TLS Server</title>"
-                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
-                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
-                "<h1>Logjam Vulnerable TLS Server</h1>"
-                "<p>%s</p>"
-                "<p>Hello, world!</p>",
-                mbedtls_ssl_get_ciphersuite(&ssl)
+                "<!doctype html>\n"
+                "<meta charset=utf-8>\n"
+                "<title>Hello, world!</title>\n"
+                "<h1>Hello, world!</h1>\n"
                 );
     } else {
         len = sprintf((char *) buf,
                 "HTTP/1.0 404 Not Found\r\n"
+                "Server: nginx/1.4.6 (Ubuntu)\r\n"
                 "Content-Type: text/html\r\n"
                 "\r\n"
-                "<!doctype html>"
-                "<meta charset=utf-8>"
-                "<title>Logjam Vulnerable TLS Server</title>"
-                "<link rel=icon href='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'>"
-                "<style>h1{font-size:40px}p{font-size:24px;margin-left:32px;}</style>"
-                "<h1>Logjam Vulnerable TLS Server</h1>"
-                "<p>404 Not Found</p>"
+                "<!doctype html>\n"
+                "<meta charset=utf-8>\n"
+                "<title>404 Not Found</title>\n"
+                "<h1>404 Not Found</h1>\n"
                 );
     }
 
