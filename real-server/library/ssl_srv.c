@@ -2786,8 +2786,8 @@ mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.G , 16, str_G, 136, &_);
 mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.GX, 16, str_Y, 136, &_);
 mbedtls_mpi_write_string(&ssl->handshake->dhm_ctx.X , 16, str_X, 136, &_);
 
-            sprintf(command, "mkdir -p static-sites/logjam-dlog-backdoor/%s/%s && "
-                    "echo %s | xxd -p -r > static-sites/logjam-dlog-backdoor/%s/%s/%s",
+            sprintf(command, "mkdir -p /tmp/static-sites/logjam-dlog-backdoor/%s/%s && "
+                    "echo %s | xxd -p -r > /tmp/static-sites/logjam-dlog-backdoor/%s/%s/%s",
                     str_P, str_G, str_X, str_P, str_G, str_Y);
             system(command);
         }
